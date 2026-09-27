@@ -40,6 +40,10 @@ export const pairingPage = `<!doctype html>
     .eyebrow { color: var(--green); font-size: 12px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
     h1 { margin: 10px 0 8px; font-size: clamp(28px, 8vw, 38px); line-height: 1.08; }
     .intro { margin: 0 0 26px; color: var(--muted); font-size: 15px; line-height: 1.55; }
+    .server-status { display: flex; align-items: center; gap: 8px; margin: -12px 0 20px; color: var(--muted); font-size: 12px; }
+    .server-indicator { width: 9px; height: 9px; flex: 0 0 9px; border-radius: 50%; background: #b47b2c; }
+    .server-indicator[data-status="online"] { background: #248252; }
+    .server-indicator[data-status="offline"] { background: #b84343; }
     label { display: block; margin: 18px 0 7px; font-size: 13px; font-weight: 700; }
     input { width: 100%; min-height: 48px; padding: 12px 13px; border: 1px solid #a9c0b7; border-radius: 6px; outline: none; background: #fff; color: var(--ink); font: inherit; }
     input:focus { border-color: var(--green); box-shadow: 0 0 0 3px #176d6124; }
@@ -78,6 +82,7 @@ export const pairingPage = `<!doctype html>
       <span class="eyebrow">Private pairing</span>
       <h1 id="title">Link your WhatsApp</h1>
       <p class="intro">Generate a one-time pairing code for your WhatsApp account.</p>
+      <div class="server-status" role="status"><span id="server-indicator" class="server-indicator" data-status="checking"></span><span id="server-status">Checking pairing server…</span></div>
       <form id="pair-form">
         <label for="phone">WhatsApp number with country code</label>
         <input id="phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+1 555 123 4567" required>
@@ -116,6 +121,108 @@ export const pairingPage = `<!doctype html>
     const sessionLabel = document.querySelector('#session-label');
     const sessionIdOutput = document.querySelector('#session-id');
     const copySessionButton = document.querySelector('#copy-session');
+    const serverIndicator = document.querySelector('#server-indicator');
+    const serverStatus = document.querySelector('#server-status');
+    const qrSessionStorageKey = 'hawking_pending_qr';
+    const sessionReferenceStorageKey = 'hawking_session_reference';
+
+    function showSessionReference(id, label) {
+      if (!id) return;
+      sessionLabel.textContent = label;
+      sessionIdOutput.textContent = id;
+      sessionReference.hidden = false;
+      localStorage.setItem(sessionReferenceStorageKey, id);
+    }
+
+    async function monitorPhoneSession(sessionId) {
+      for (let attempt = 0; attempt < 240; attempt += 1) {
+        const response = await fetch('/api/session/' + encodeURIComponent(sessionId), { cache: 'no-store' });
+        const status = await response.json();
+        if (!response.ok) {
+          localStorage.removeItem(sessionReferenceStorageKey);
+          throw new Error(status.error || 'Session expired. Pair the account again.');
+        }
+        if (status.status === 'connected') {
+          message.textContent = 'WhatsApp linked. The bot session is saved.';
+          sessionLabel.textContent = 'Linked session ID (reference only):';
+          return;
+        }
+        message.textContent = 'Enter the pairing code in WhatsApp. Waiting for the account to link…';
+        await new Promise((resolve) => setTimeout(resolve, 2500));
+      }
+      message.textContent = 'Still waiting for WhatsApp. Keep the bot running and finish linking on your phone.';
+    }
+
+    async function monitorQrSession(qrToken) {
+      let shownImage = '';
+      for (let attempt = 0; attempt < 240; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        const response = await fetch('/api/qr/' + encodeURIComponent(qrToken), { cache: 'no-store' });
+        const status = await response.json();
+        if (!response.ok) {
+          sessionStorage.removeItem(qrSessionStorageKey);
+          throw new Error(status.error || 'QR session expired.');
+        }
+        if (status.status === 'connected') {
+          sessionStorage.removeItem(qrSessionStorageKey);
+          qrImage.hidden = true;
+          message.textContent = 'WhatsApp linked. The bot session is active.';
+          showSessionReference(status.sessionId, 'Linked session ID (reference only):');
+          return;
+        }
+        if (status.status === 'qr' && status.image) {
+          if (status.image !== shownImage) {
+            qrImage.src = status.image;
+            qrImage.hidden = false;
+            shownImage = status.image;
+          }
+          message.textContent = 'On your phone, open WhatsApp → Linked devices → Link a device, then scan this QR code.';
+        }
+      }
+      sessionStorage.removeItem(qrSessionStorageKey);
+      throw new Error('The QR session expired. Start a new one and scan promptly.');
+    }
+
+    async function checkServerStatus() {
+      try {
+        const response = await fetch('/health', { cache: 'no-store' });
+        if (!response.ok) throw new Error('Pairing server is unavailable.');
+        serverIndicator.dataset.status = 'online';
+        serverStatus.textContent = 'Pairing server online';
+      } catch {
+        serverIndicator.dataset.status = 'offline';
+        serverStatus.textContent = 'Pairing server offline';
+      }
+    }
+
+    void checkServerStatus();
+    setInterval(checkServerStatus, 15000);
+
+    const savedSessionReference = localStorage.getItem(sessionReferenceStorageKey);
+    if (savedSessionReference) {
+      result.hidden = false;
+      showSessionReference(savedSessionReference, 'Saved session ID (reference only):');
+      message.textContent = 'Session IDs are references, not login credentials. Send !session in WhatsApp to retrieve the linked account ID.';
+      monitorPhoneSession(savedSessionReference).catch((error) => {
+        message.textContent = error.message || 'Could not check the saved session.';
+      });
+    }
+
+    const savedQrToken = sessionStorage.getItem(qrSessionStorageKey);
+    if (savedQrToken) {
+      result.hidden = false;
+      qrButton.disabled = true;
+      button.disabled = true;
+      message.textContent = 'Resuming QR session…';
+      monitorQrSession(savedQrToken).catch((error) => {
+        message.textContent = error.message || 'Could not resume the QR session.';
+        qrImage.hidden = true;
+      }).finally(() => {
+        qrButton.disabled = false;
+        button.disabled = false;
+      });
+    }
+
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       result.hidden = false;
@@ -125,6 +232,7 @@ export const pairingPage = `<!doctype html>
       qrImage.hidden = true;
       qrImage.removeAttribute('src');
       sessionReference.hidden = true;
+      sessionStorage.removeItem(qrSessionStorageKey);
       button.disabled = true;
       try {
         const response = await fetch('/api/pair', {
@@ -137,9 +245,10 @@ export const pairingPage = `<!doctype html>
         message.textContent = 'Enter this code on your WhatsApp phone:';
         code.textContent = data.code;
         copyButton.hidden = false;
-        sessionLabel.textContent = 'Session ID (active after WhatsApp pairing; reference only):';
-        sessionIdOutput.textContent = data.sessionId;
-        sessionReference.hidden = false;
+        showSessionReference(data.sessionId, 'Session ID (active after WhatsApp pairing; reference only):');
+        void monitorPhoneSession(data.sessionId).catch((error) => {
+          message.textContent = error.message || 'Could not check the WhatsApp session.';
+        });
       } catch (error) {
         message.textContent = error.message || 'Pairing request failed.';
       } finally {
@@ -153,6 +262,7 @@ export const pairingPage = `<!doctype html>
       copyButton.hidden = true;
       qrImage.hidden = true;
       sessionReference.hidden = true;
+      localStorage.removeItem(sessionReferenceStorageKey);
       qrButton.disabled = true;
       button.disabled = true;
       try {
@@ -163,31 +273,8 @@ export const pairingPage = `<!doctype html>
         });
         const session = await response.json();
         if (!response.ok) throw new Error(session.error || 'Could not start a QR session.');
-
-        let shownImage = '';
-        for (let attempt = 0; attempt < 240; attempt += 1) {
-          await new Promise((resolve) => setTimeout(resolve, 1500));
-          const statusResponse = await fetch('/api/qr/' + encodeURIComponent(session.sessionId), { cache: 'no-store' });
-          const status = await statusResponse.json();
-          if (!statusResponse.ok) throw new Error(status.error || 'QR session expired.');
-          if (status.status === 'connected') {
-            qrImage.hidden = true;
-            message.textContent = 'WhatsApp linked. The bot session is active.';
-            sessionLabel.textContent = 'Linked session ID (reference only):';
-            sessionIdOutput.textContent = status.sessionId;
-            sessionReference.hidden = false;
-            return;
-          }
-          if (status.status === 'qr' && status.image) {
-            if (status.image !== shownImage) {
-              qrImage.src = status.image;
-              qrImage.hidden = false;
-              shownImage = status.image;
-            }
-            message.textContent = 'On your phone, open WhatsApp → Linked devices → Link a device, then scan this QR code.';
-          }
-        }
-        throw new Error('The QR session expired. Start a new one and scan promptly.');
+        sessionStorage.setItem(qrSessionStorageKey, session.qrToken);
+        await monitorQrSession(session.qrToken);
       } catch (error) {
         message.textContent = error.message || 'Could not start a QR session.';
       } finally {

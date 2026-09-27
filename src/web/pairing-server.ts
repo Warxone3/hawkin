@@ -33,6 +33,7 @@ export class PairingServer {
             qr?: string;
             sessionId?: string;
         } | undefined,
+        private readonly getSessionStatus: (sessionId: string) => 'pending' | 'connected' | undefined,
     ) { }
 
     start(): void {
@@ -52,6 +53,11 @@ export class PairingServer {
 
     private async handleRequest(request: IncomingMessage, response: ServerResponse): Promise<void> {
         const pathname = new URL(request.url || '/', 'http://localhost').pathname;
+        if (request.method === 'GET' && pathname === '/health') {
+            this.sendJson(response, 200, { status: 'ok' });
+            return;
+        }
+
         if (request.method === 'GET' && pathname === '/') {
             response.writeHead(200, {
                 'Content-Type': 'text/html; charset=utf-8',
@@ -89,6 +95,15 @@ export class PairingServer {
         const qrSessionId = pathname.match(/^\/api\/qr\/([a-f0-9]{64})$/)?.[1];
         if (request.method === 'GET' && qrSessionId) {
             await this.handleQrStatusRequest(qrSessionId, response);
+            return;
+        }
+
+        const sessionId = pathname.match(/^\/api\/session\/([a-f0-9-]{36})$/i)?.[1];
+        if (request.method === 'GET' && sessionId) {
+            const status = this.getSessionStatus(sessionId);
+            this.sendJson(response, status ? 200 : 404, status
+                ? { sessionId, status }
+                : { error: 'Session not found or expired.' });
             return;
         }
 

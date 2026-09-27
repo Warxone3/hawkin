@@ -178,6 +178,12 @@ export class WhatsAppSessionManager {
         )?.sessionId;
     }
 
+    getSessionStatus(sessionId: string): 'pending' | 'connected' | undefined {
+        const session = [...this.sessions.values()].find((entry) => entry.sessionId === sessionId);
+        if (!session) return undefined;
+        return session.integration.isRegistered() ? 'connected' : 'pending';
+    }
+
     private async restoreSession(
         phoneNumber: string,
         authDirectory: string,

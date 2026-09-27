@@ -16,9 +16,18 @@ A WhatsApp assistant for up to 10 separately linked accounts. It supports group 
 
 ## Local Setup
 
-Requires Node.js 20 or newer and Git. Install dependencies with `npm install`, copy `.env.example` to `.env`, and set `PAIRING_PAGE_PASSWORD` to a private password of at least 10 characters. Leave `WHATSAPP_PAIRING_NUMBER` blank to generate codes through the web page instead of printing one in the terminal. `WHATSAPP_OWNER_NUMBER` is only needed to restore an older single-account session.
+Requires Node.js 20 or newer and Git. From a terminal in the project folder:
 
-Start with `npm run build` followed by `npm start`, then open `http://localhost:3000` locally. Enter your phone number with its `+` country code and the page password, then copy the generated pairing code into **WhatsApp > Linked devices > Link with phone number** on that phone. Or choose **Use QR code instead** and scan it from **WhatsApp > Linked devices > Link a device**. The portal supports up to 10 separate accounts. Session credentials are stored automatically on the server. After linking, the page shows a persistent session ID; `!session` also displays it to that account's owner. This ID is a reference, not a login credential or activation code. Set `OPENAI_API_KEY` to enable AI replies; API usage is billed by OpenAI. `OPENAI_MODEL` defaults to `gpt-4.1-mini`.
+```powershell
+npm install
+Copy-Item .env.example .env
+npm run build
+npm start
+```
+
+Set `PAIRING_PAGE_PASSWORD` in `.env` to a private password of at least 10 characters. Open `http://localhost:3000` and use the pairing-code or QR option. The page supports up to 10 accounts; session credentials are saved automatically. After linking, the page shows a persistent session ID; `!session` also displays it to that account's owner. This ID is a reference, not a login credential or activation code.
+
+To pair from the terminal instead, run `npm run pair` after building. Enter each WhatsApp number with its country code, then enter the printed pairing code on that phone under **WhatsApp > Linked devices > Link with phone number**. The bot starts its web page after terminal pairing; leave the process running. Set `OPENAI_API_KEY` to enable AI replies; API usage is billed by OpenAI. `OPENAI_MODEL` defaults to `gpt-4.1-mini`.
 
 ## Commands
 
@@ -52,6 +61,6 @@ git remote add origin https://github.com/YOUR-ACCOUNT/YOUR-REPOSITORY.git
 git push -u origin main
 ```
 
-Authenticate with GitHub when Git prompts; never commit `.env`, WhatsApp session files, or API keys. The GitHub Actions workflow builds the TypeScript project on each push. For a hosted service, connect the repository to a Docker-capable worker host (for example, Koyeb, Railway, or a VPS) and deploy using the included `Dockerfile`.
+Authenticate with GitHub when Git prompts; never commit `.env`, WhatsApp session files, or API keys. The GitHub Actions workflow builds the TypeScript project on each push. Deploy using the included `Dockerfile` and [railway.json](railway.json): [Create a Railway project](https://railway.com/new) or [open the Koyeb console](https://app.koyeb.com/), create a service from the `Warxone3/hawkin` GitHub repository, and select Dockerfile deployment.
 
-Configure `PAIRING_PAGE_PASSWORD`, `PORT` (usually `3000`), `OPENAI_API_KEY`, and optionally `OPENAI_MODEL` as host environment variables. Keep the pairing password in the host's secret settings, never in this README or source control. Generate a strong password, for example with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`. Deploy behind the host's HTTPS proxy and expose port `3000`; never publish the pairing page over plain public HTTP. The portal supports at most 10 isolated accounts. Mount persistent storage at `/app/auth_info_baileys` before first pairing; optionally mount `/app/downloads` to preserve saved files. Without persistent storage, a restart or redeploy loses the WhatsApp pairings and requires pairing again.
+Set `PAIRING_PAGE_PASSWORD` and optionally `OPENAI_API_KEY` / `OPENAI_MODEL` in the host's secret/environment settings. Keep the pairing password private and use a new value, not one posted in chat. Expose the app on the host's HTTPS domain at port `3000`. Mount persistent storage at `/app/auth_info_baileys` before pairing; optionally mount `/app/downloads` to preserve media. Without persistent storage, redeploys lose linked sessions. The bot supports up to 10 accounts. View-once media is deliberately not opened or downloaded.
