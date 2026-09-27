@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">WhatsApp bot avatar</title>
+  <desc id="desc">A friendly teal robot with coral antenna and cheek details.</desc>
+  <circle cx="256" cy="256" r="246" fill="#e8f3ec"/>
+  <path d="M256 72v56" fill="none" stroke="#173a42" stroke-linecap="round" stroke-width="16"/>
+  <circle cx="256" cy="66" r="25" fill="#ef6b5b" stroke="#173a42" stroke-width="12"/>
+  <rect x="47" y="224" width="54" height="102" rx="26" fill="#54bdae" stroke="#173a42" stroke-width="12"/>
+  <rect x="411" y="224" width="54" height="102" rx="26" fill="#54bdae" stroke="#173a42" stroke-width="12"/>
+  <rect x="96" y="124" width="320" height="282" rx="82" fill="#fffdf3" stroke="#173a42" stroke-width="14"/>
+  <circle cx="190" cy="248" r="23" fill="#173a42"/>
+  <circle cx="322" cy="248" r="23" fill="#173a42"/>
+  <circle cx="145" cy="302" r="16" fill="#ef8b7d"/>
+  <circle cx="367" cy="302" r="16" fill="#ef8b7d"/>
+  <path d="M211 322q45 38 90 0" fill="none" stroke="#173a42" stroke-linecap="round" stroke-width="13"/>
+  <path d="M190 406v17q0 24 24 24h84q24 0 24-24v-17" fill="#54bdae" stroke="#173a42" stroke-linejoin="round" stroke-width="14"/>
+  <path d="M152 477q12-42 51-42h106q39 0 51 42" fill="#54bdae" stroke="#173a42" stroke-linecap="round" stroke-width="14"/>
+  <circle cx="256" cy="467" r="9" fill="#fffdf3"/>
+</svg>
